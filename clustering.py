@@ -91,78 +91,78 @@ def matching_by_clustering(data):
     
     print(merge_df.head())
     
-    # return merge_df
+    return merge_df
     
     
     
-# def internal_string_matching(clustered_data):
-#     unique_clustered_data = data[['product_name', 'cluster_name', 'best_product_match']].\
-#                             drop_duplicates(subset=['product_name'], keep='first').reset_index(drop=True)
+def internal_string_matching(clustered_data):
+    unique_clustered_data = data[['product_name', 'cluster_name', 'best_product_match']].\
+                            drop_duplicates(subset=['product_name'], keep='first').reset_index(drop=True)
     
-#     # cleanup function
-#     def compare(row):
-#         comparison = {}
-#         i = row['product_name']
-#         prods_list = row[['cluster_name', 'best_product_match']].tolist()
-#         if isinstance(i, str):
-#             comparison.update({i: get_close_matches(i, prods_list, n=1, cutoff=0.1)})
-#         product_name = list(comparison.keys()) if comparison else None
-#         match = []
-#         score = []
-#         if comparison:
-#             for key, value in comparison.items():
-#                 if value:
-#                     match.append(value[0])
-#                     score.append(round(SequenceMatcher(None, i, value[0]).ratio(), 2))
-#                 else:
-#                     match.append(None)
-#                     score.append(None)
-#         else:
-#             match.append(None)
-#             score.append(None)
+    # cleanup function
+    def compare(row):
+        comparison = {}
+        i = row['product_name']
+        prods_list = row[['cluster_name', 'best_product_match']].tolist()
+        if isinstance(i, str):
+            comparison.update({i: get_close_matches(i, prods_list, n=1, cutoff=0.1)})
+        product_name = list(comparison.keys()) if comparison else None
+        match = []
+        score = []
+        if comparison:
+            for key, value in comparison.items():
+                if value:
+                    match.append(value[0])
+                    score.append(round(SequenceMatcher(None, i, value[0]).ratio(), 2))
+                else:
+                    match.append(None)
+                    score.append(None)
+        else:
+            match.append(None)
+            score.append(None)
                 
-#         return pd.Series([match, score], index = ['match', 'score'])
+        return pd.Series([match, score], index = ['match', 'score'])
     
-#     unique_clustered_data[['match', 'score']] = [compare(row) for _, row in unique_clustered_data.iterrows()]
-#     unique_clustered_data[['match', 'score']] = unique_clustered_data[['match', 'score']].apply(lambda x: x[0])
-#     unique_clustered_data['go_to_match'] = np.where(unique_clustered_data['score'] >= 0.65, unique_clustered_data['match'], unique_clustered_data['cluster_name'])
+    unique_clustered_data[['match', 'score']] = [compare(row) for _, row in unique_clustered_data.iterrows()]
+    unique_clustered_data[['match', 'score']] = unique_clustered_data[['match', 'score']].apply(lambda x: x[0])
+    unique_clustered_data['go_to_match'] = np.where(unique_clustered_data['score'] >= 0.65, unique_clustered_data['match'], unique_clustered_data['cluster_name'])
 
-#     print(unique_clustered_data.head())
+    print(unique_clustered_data.head())
     
-#     return unique_clustered_data
+    return unique_clustered_data
 
 
 
-# def master_string_matching(products_df, master_list, unique_clustered_data):
-#     master_list = master_list['product_name'].to_list()
-#     matches_cache = {}
+def master_string_matching(products_df, master_list, unique_clustered_data):
+    master_list = master_list['product_name'].to_list()
+    matches_cache = {}
 
-#     def get_closest_match(word, possibilities: list[str]):
-#         word = str(word).lower()
-#         if found := matches_cache.get(word):
-#             return found
+    def get_closest_match(word, possibilities: list[str]):
+        word = str(word).lower()
+        if found := matches_cache.get(word):
+            return found
 
-#         matches = get_close_matches(word, possibilities, n=1, cutoff=0.0)
-#         match = matches[0] if matches else ''
-#         score = round(SequenceMatcher(None, word, match).ratio(), 2)
-#         found = {'best_match': match, 'best_score': score}
-#         matches_cache[word] = found
+        matches = get_close_matches(word, possibilities, n=1, cutoff=0.0)
+        match = matches[0] if matches else ''
+        score = round(SequenceMatcher(None, word, match).ratio(), 2)
+        found = {'best_match': match, 'best_score': score}
+        matches_cache[word] = found
 
-#         return found
+        return found
     
-#     matched_df = data['go_to_match'].apply(lambda x: get_closest_match(x, master_list))
-#     matched_df = matched_df.apply(pd.Series)
+    matched_df = data['go_to_match'].apply(lambda x: get_closest_match(x, master_list))
+    matched_df = matched_df.apply(pd.Series)
     
-#     data = pd.concat([data, matched_df], axis=1)
-#     data['correct_match'] = np.where(data['best_score'] >= 0.8, data['best_match'], data['go_to_match'])
+    data = pd.concat([data, matched_df], axis=1)
+    data['correct_match'] = np.where(data['best_score'] >= 0.8, data['best_match'], data['go_to_match'])
     
-#     products_df = products_df.merge(data[['product_name', 'correct_match']], how='left', on='product_name')
-#     products_df['correct_match'] = np.where(products_df['correct_match'].isna(), products_df['best_product_match'], products_df['correct_match'])
-#     products_df = products_df[['product_name', 'correct_match']]
+    products_df = products_df.merge(data[['product_name', 'correct_match']], how='left', on='product_name')
+    products_df['correct_match'] = np.where(products_df['correct_match'].isna(), products_df['best_product_match'], products_df['correct_match'])
+    products_df = products_df[['product_name', 'correct_match']]
     
-#     print(products_df.head())
+    print(products_df.head())
     
-#     return products_df
+    return products_df
 
 
     
@@ -174,9 +174,10 @@ def matching_by_clustering(data):
 if __name__ == "__main__":
     master_list = pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v1/master_list.csv')
     data = pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v2/subsequent_unmatched_products.csv')
-    # clustered_data = matching_by_clustering(data)
-    # unique_clustered_data = internal_string_matching(clustered_data)
-    # master_string_matching(data, master_list, unique_clustered_data)
+    
+    clustered_data = matching_by_clustering(data)
+    unique_clustered_data = internal_string_matching(clustered_data)
+    master_string_matching(data, master_list, unique_clustered_data)
     
     matching_by_clustering(data)
 
