@@ -68,10 +68,8 @@ def manufacturer_clustering(data, master_list):
     
     df_non_dup = pd.merge(df_non_dup, cleaned_manufacturers_df, how='left', on='manufacturer_slice')
     
-    # Initialize an empty list to store the similar strings
     similar_strings = []
 
-    # Iterate over the rows of the DataFrame
     for i, row in df_non_dup.iterrows():
         string = row['manufacturer_name']
         value = row['match']
@@ -149,7 +147,9 @@ def manufacturer_clustering(data, master_list):
 
     cluster_word_freq_df = pd.concat([cluster_word_freq_df, found_df], axis=1)
     cluster_word_freq_df['cluster_name'] = np.where(cluster_word_freq_df['best_score'] >= 0.80, cluster_word_freq_df['best_match'], cluster_word_freq_df['cluster_name'])
-
+    cluster_word_freq_df = cluster_word_freq_df.drop('match', axis=1)
+    
+    df_unique_match = pd.concat([df_unique_match, cluster_word_freq_df], axis=1)
     df_unique_match['match'] = df_unique_match['match'].apply(lambda x: ' '.join(x))
     df_non_dup['match'] = df_non_dup['match'].apply(lambda x: ' '.join(x))
     df_non_dup = df_non_dup.merge(df_unique_match, how='left', on='match')
@@ -193,6 +193,7 @@ def manufacturer_clustering(data, master_list):
     df['go_to_match'] = np.where(df['go_to_match'].isna(), df['best_manufacturer_match'], df['go_to_match'])
     
     print(df.head())
+    
     print(df.shape)
     
     return df

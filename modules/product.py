@@ -2,28 +2,22 @@ import pandas as pd
 import numpy as np
 
 from sklearn.cluster import KMeans
-from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from sklearn.decomposition import LatentDirichletAllocation
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import silhouette_score
-from scipy.spatial.distance import cdist
 from difflib import SequenceMatcher, get_close_matches
 import re
-from tqdm import tqdm, trange
-import time
-
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-pd.set_option('display.max_columns',None)
 
 import warnings
 warnings.filterwarnings('ignore')
+
+pd.set_option('display.max_columns',None)
 
 vectorizer = TfidfVectorizer()
 
 
 def matching_by_clustering(data):
-    df = data[:50].applymap(lambda x: x.lower().strip() if isinstance(x, str) else x)
+    df = data[['product_name', 'best_product_match', 'product_match_score']].\
+                applymap(lambda x: x.lower().strip() if isinstance(x, str) else x)
 
     to_cluster = df[df['product_match_score'] < 0.8]
     unique_names = to_cluster['product_name'].unique()
@@ -150,23 +144,19 @@ def master_string_matching(products_df, master_list, unique_clustered_data):
 
         return found
     
-    matched_df = data['go_to_match'].apply(lambda x: get_closest_match(x, master_list))
+    matched_df = unique_clustered_data['go_to_match'].apply(lambda x: get_closest_match(x, master_list))
     matched_df = matched_df.apply(pd.Series)
     
-    data = pd.concat([data, matched_df], axis=1)
-    data['correct_match'] = np.where(data['best_score'] >= 0.8, data['best_match'], data['go_to_match'])
+    unique_clustered_data = pd.concat([unique_clustered_data, matched_df], axis=1)
+    unique_clustered_data['correct_product_match'] = np.where(unique_clustered_data['best_score'] >= 0.8, unique_clustered_data['best_match'], unique_clustered_data['go_to_match'])
     
-    products_df = products_df.merge(data[['product_name', 'correct_match']], how='left', on='product_name')
-    products_df['correct_match'] = np.where(products_df['correct_match'].isna(), products_df['best_product_match'], products_df['correct_match'])
-    products_df = products_df[['product_name', 'correct_match']]
+    products_df['product_name'] = products_df['product_name'].apply(lambda x: x.lower().strip() if isinstance(x, str) else x)
+    products_df = products_df.merge(unique_clustered_data[['product_name', 'correct_product_match']], how='left', on='product_name')
+    products_df['correct_product_match'] = np.where(products_df['correct_product_match'].isna(), products_df['best_product_match'], products_df['correct_product_match'])
     
     print(products_df.head())
     
     return products_df
-
-
-    
-    
     
     
     
