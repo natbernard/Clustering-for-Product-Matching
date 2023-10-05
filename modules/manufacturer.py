@@ -4,7 +4,7 @@ from difflib import SequenceMatcher, get_close_matches
 
 import re
 
-def manufacturer_clustering(data, master_list):
+def manufacturer_clustering(data, master_df):
     # slicing for manufacturer name, match, and match score
     df = data[['manufacturer_name', 'best_manufacturer_match', 'manufacturer_match_score']].\
                     applymap(lambda x: x.strip().lower() if isinstance(x, str) else x)
@@ -129,7 +129,7 @@ def manufacturer_clustering(data, master_list):
     # cleaning against master list
     cluster_word_freq_df['cluster_name'] = cluster_word_freq_df['cluster_name'].astype('str')
     
-    master_list['manufacturer_name'] = master_list['manufacturer_name'].astype('str')    
+    master_list['manufacturer_name'] = master_df['manufacturer_name'].astype('str')    
 
     matches_cache = {}
     master_list = master_list['manufacturer_name'].to_list()
@@ -204,5 +204,5 @@ def manufacturer_clustering(data, master_list):
 
 if __name__ == "__main__":
     data =  pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v2/subsequent_manufacturers.csv')
-    master_list = pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v1/master_list.csv')
-    manufacturer_clustering(data, master_list)
+    master_df = pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v1/master_list.csv')
+    manufacturer_clustering(data, master_df)

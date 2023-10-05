@@ -10,10 +10,6 @@ import re
 import warnings
 warnings.filterwarnings('ignore')
 
-pd.set_option('display.max_columns',None)
-
-vectorizer = TfidfVectorizer()
-
 
 def matching_by_clustering(data):
     # slicing product name, match, and match score
@@ -24,6 +20,7 @@ def matching_by_clustering(data):
     to_cluster = df[df['product_match_score'] < 0.8]
     unique_names = to_cluster['product_name'].unique()
     
+    vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform(unique_names)
     
     # clustering product names
