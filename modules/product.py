@@ -16,14 +16,17 @@ vectorizer = TfidfVectorizer()
 
 
 def matching_by_clustering(data):
+    # slicing product name, match, and match score
     df = data[['product_name', 'best_product_match', 'product_match_score']].\
                 applymap(lambda x: x.lower().strip() if isinstance(x, str) else x)
 
+    # getting records with match score less than 80%
     to_cluster = df[df['product_match_score'] < 0.8]
     unique_names = to_cluster['product_name'].unique()
     
     tfidf_matrix = vectorizer.fit_transform(unique_names)
     
+    # clustering product names
     def optimal_clusters(matrix):
         clusters = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
         silhouette_scores = []
@@ -52,7 +55,6 @@ def matching_by_clustering(data):
         names = unique_names[indices].tolist()
         cluster_to_name[label] = names
         
-    # viewing the clusters
     cluster_df = pd.DataFrame.from_dict(cluster_to_name.items())
     cluster_df.rename(columns={0: 'cluster_id', 1: 'product_names'}, inplace=True)
     cluster_df.set_index('cluster_id', inplace=True)
@@ -82,18 +84,16 @@ def matching_by_clustering(data):
     # merging cluster names with original product names
     merge_df = to_cluster.merge(unique_names_df, how='left', on='product_name')
     merge_df = merge_df.merge(cluster_word_freq_df[['label', 'cluster_name']], how='left', on='label')
-    
-    print(merge_df.head())
-    
+        
     return merge_df
     
     
     
 def internal_string_matching(clustered_data):
-    unique_clustered_data = data[['product_name', 'cluster_name', 'best_product_match']].\
+    unique_clustered_data = clustered_data[['product_name', 'cluster_name', 'best_product_match']].\
                             drop_duplicates(subset=['product_name'], keep='first').reset_index(drop=True)
     
-    # cleanup function
+    # picking between original best match and new cluster name 
     def compare(row):
         comparison = {}
         i = row['product_name']
@@ -119,18 +119,17 @@ def internal_string_matching(clustered_data):
     
     unique_clustered_data[['match', 'score']] = [compare(row) for _, row in unique_clustered_data.iterrows()]
     unique_clustered_data[['match', 'score']] = unique_clustered_data[['match', 'score']].apply(lambda x: x[0])
-    unique_clustered_data['go_to_match'] = np.where(unique_clustered_data['score'] >= 0.65, unique_clustered_data['match'], unique_clustered_data['cluster_name'])
-
-    print(unique_clustered_data.head())
+    unique_clustered_data['go_to_match'] = np.where(unique_clustered_data['score'] >= 0.8, unique_clustered_data['match'], unique_clustered_data['cluster_name'])
     
     return unique_clustered_data
 
 
 
-def master_string_matching(products_df, master_list, unique_clustered_data):
-    master_list = master_list['product_name'].to_list()
+def master_string_matching(products_df, master_df, unique_clustered_data):
+    master_list = master_df['product_name'].to_list()
     matches_cache = {}
 
+    # cleaning cluster names against master list
     def get_closest_match(word, possibilities: list[str]):
         word = str(word).lower()
         if found := matches_cache.get(word):
@@ -153,24 +152,20 @@ def master_string_matching(products_df, master_list, unique_clustered_data):
     products_df['product_name'] = products_df['product_name'].apply(lambda x: x.lower().strip() if isinstance(x, str) else x)
     products_df = products_df.merge(unique_clustered_data[['product_name', 'correct_product_match']], how='left', on='product_name')
     products_df['correct_product_match'] = np.where(products_df['correct_product_match'].isna(), products_df['best_product_match'], products_df['correct_product_match'])
-    
-    print(products_df.head())
-    
+        
     return products_df
     
     
     
 
 if __name__ == "__main__":
-    master_list = pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v1/master_list.csv')
+    master_df = pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v1/master_list.csv')
     data = pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v2/subsequent_unmatched_products.csv')
     
     clustered_data = matching_by_clustering(data)
     unique_clustered_data = internal_string_matching(clustered_data)
-    master_string_matching(data, master_list, unique_clustered_data)
+    master_string_matching(data, master_df, unique_clustered_data)
     
-    matching_by_clustering(data)
-
 
 
     

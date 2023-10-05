@@ -6,16 +6,16 @@ from difflib import SequenceMatcher, get_close_matches
 import warnings
 warnings.filterwarnings("ignore")
 
-def category_cleanup(product_list, data):
-    product_list = product_list[['Product Name', 'Category', 'Sub category']].applymap(lambda x: str(x).lower().strip())\
-                   .drop_duplicates(subset=['Product Name'], keep='first')\
-                   .rename(columns={'Product Name': 'product_name'})\
-                   .reset_index(drop=True)             
+def category_cleanup(iprocure_product_df, data):
+    product_list = iprocure_product_df[['Product Name', 'Category', 'Sub category']].applymap(lambda x: str(x).lower().strip())\
+                    .drop_duplicates(subset=['Product Name'], keep='first')\
+                    .rename(columns={'Product Name': 'product_name'})\
+                    .reset_index(drop=True)             
     
-    df = data.applymap(lambda x: str(x).lower().strip())\
-           .drop_duplicates(subset=['correct_product_match'], keep='first')\
-           .rename(columns={'correct_product_match': 'product_name'})\
-           .reset_index(drop=True)
+    df = data[['correct_product_match', 'category_name', 'sub_category']].applymap(lambda x: str(x).lower().strip())\
+                    .drop_duplicates(subset=['correct_product_match'], keep='first')\
+                    .rename(columns={'correct_product_match': 'product_name'})\
+                    .reset_index(drop=True)
            
     df = df.merge(product_list, how='left', on='product_name')
     
@@ -27,7 +27,7 @@ def category_cleanup(product_list, data):
     wrong_categories_df = df[~df['Category'].isin(categories)]
     wrong_categories_df = wrong_categories_df.drop_duplicates(subset='Category', keep='first')
 
-    # cleanup function
+    # cleaning against iprocure categories
     def compare(i):
         comparison = {}
         if isinstance(i, str):
@@ -59,25 +59,27 @@ def category_cleanup(product_list, data):
     df = df.merge(category_matches_df[['Category', 'match']], how='left', on='Category')
     df['match'] = np.where(df['match'].isna(), df['Category'], df['match'])
     df = df.drop(['category_name', 'Category'], axis = 1).\
-            rename(columns={'match': 'category_name'})
+            rename(columns={'match': 'correct_category_name'})
     
     # cleaning subcategories
     df['Sub category'] = np.where(df['Sub category'].isna(), df['sub_category'], df['Sub category'])
     df = df.drop('sub_category', axis = 1).\
-            rename(columns={'Sub category': 'sub_category'})
+            rename(columns={'Sub category': 'correct_sub_category',
+                            'product_name': 'correct_product_match'})
     
-    df = df.drop_duplicates(subset=['product_name'], keep='last').reset_index(drop=True)
+    df = df.drop_duplicates(subset=['correct_product_match'], keep='first').reset_index(drop=True)
     
-    print(df.head())
-    
+    data['correct_product_match'] = data['correct_product_match'].apply(lambda x: str(x).lower().strip())
+    data = data.merge(df[['correct_product_match', 'correct_category_name', 'correct_sub_category']], how='left', on='correct_product_match')
+        
     return df
 
 
 if __name__ == "__main__":
-    product_list_df = pd.read_excel('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v2/product_list.xlsx')   
+    iprocure_product_df = pd.read_excel('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v2/product_list.xlsx')   
     category_data = pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v2/dirty_category_data.csv')
     
-    category_cleanup(product_list_df, category_data)
+    category_cleanup(iprocure_product_df, category_data)
     
     
 

@@ -5,7 +5,10 @@ from difflib import SequenceMatcher, get_close_matches
 import re
 
 def manufacturer_clustering(data, master_list):
-    df = data.applymap(lambda x: x.strip().lower() if isinstance(x, str) else x)
+    # slicing for manufacturer name, match, and match score
+    df = data[['manufacturer_name', 'best_manufacturer_match', 'manufacturer_match_score']].\
+                    applymap(lambda x: x.strip().lower() if isinstance(x, str) else x)
+                    
     df_manufacturer = df[df['manufacturer_match_score'] < 0.8]
     
     df_non_dup = df_manufacturer.drop_duplicates(subset='manufacturer_name', keep='first').reset_index(drop=True)
@@ -35,6 +38,7 @@ def manufacturer_clustering(data, master_list):
                                         to_frame().\
                                         reset_index(drop=True)
     
+    # grouping similar manufacturer names
     matched = []
     def compare(i):
         compare = {}
@@ -93,6 +97,7 @@ def manufacturer_clustering(data, master_list):
                                                     apply(lambda x: round(sum(len(word.split()) for word in x) / len(x), 0))
     df_unique_match['similar_strings'] = df_unique_match['similar_strings'].apply(lambda x: ' '.join(x))
     
+    # extracting most common words from each cluster in order
     cluster_word_freq = {}
 
     for id, row in df_unique_match.iterrows():
@@ -111,7 +116,7 @@ def manufacturer_clustering(data, master_list):
     cluster_word_freq_df = pd.DataFrame.from_dict(cluster_word_freq.items())
     cluster_word_freq_df.rename(columns={0: 'id', 1: 'word_freq'}, inplace=True)
     
-    cluster_word_freq_df = pd.concat([cluster_word_freq_df, df_unique_match[['match', 'average_length']]], axis=1)
+    cluster_word_freq_df = pd.concat([cluster_word_freq_df, df_unique_match[['average_length']]], axis=1)
 
     for i, row in cluster_word_freq_df.iterrows():
         lst = row['word_freq']
@@ -146,14 +151,14 @@ def manufacturer_clustering(data, master_list):
     found_df = found_df.apply(pd.Series)
 
     cluster_word_freq_df = pd.concat([cluster_word_freq_df, found_df], axis=1)
-    cluster_word_freq_df['cluster_name'] = np.where(cluster_word_freq_df['best_score'] >= 0.80, cluster_word_freq_df['best_match'], cluster_word_freq_df['cluster_name'])
-    cluster_word_freq_df = cluster_word_freq_df.drop('match', axis=1)
+    cluster_word_freq_df['cluster_name'] = np.where(cluster_word_freq_df['best_score'] >= 0.8, cluster_word_freq_df['best_match'], cluster_word_freq_df['cluster_name'])
     
     df_unique_match = pd.concat([df_unique_match, cluster_word_freq_df], axis=1)
     df_unique_match['match'] = df_unique_match['match'].apply(lambda x: ' '.join(x))
     df_non_dup['match'] = df_non_dup['match'].apply(lambda x: ' '.join(x))
     df_non_dup = df_non_dup.merge(df_unique_match, how='left', on='match')
 
+    # picking between original best match and new cluster name 
     def compare(row):
         comparison = {}
         i = row['manufacturer_name']
@@ -183,18 +188,16 @@ def manufacturer_clustering(data, master_list):
     columns_to_convert = ['manufacturer_name', 'cluster_name', 'best_manufacturer_match']
     df_non_dup[columns_to_convert] = df_non_dup[columns_to_convert].applymap(convert_to_string)
     
-    df_non_dup[['final_match', 'score']] = [compare(row) for _, row in df_non_dup.iterrows()]
-    df_non_dup[['final_match', 'score']] = df_non_dup[['final_match', 'score']].applymap(lambda x: ' '.join(x))
-    df_non_dup['go_to_match'] = np.where(df_non_dup['score'] >= 0.8, df_non_dup['final_match'], df_non_dup['cluster_name'])
+    df_non_dup[['final_match', 'score']] = df_non_dup.apply(lambda row: compare(row), axis=1)
+    df_non_dup['final_match'] = df_non_dup['final_match'].apply(lambda x: ' '.join(x))
+    df_non_dup['score'] = df_non_dup['score'].apply(lambda x: x[0])    
+    df_non_dup['correct_manufacturer_match'] = np.where(df_non_dup['score'] >= 0.8, df_non_dup['final_match'], df_non_dup['cluster_name'])
     
-    df = df.drop_duplicates(subset='manufacturer_name', keep='first').reset_index(drop=True)
-    df = df.merge(df_non_dup[['manufacturer_name', 'go_to_match']], how='left',on='manufacturer_name')
+    data['manufacturer_name'] = data['manufacturer_name'].apply(lambda x: x.strip().lower() if isinstance(x, str) else x)
+    data = data.merge(df_non_dup[['manufacturer_name', 'correct_manufacturer_match']], how='left',on='manufacturer_name')
+    data['correct_manufacturer_match'] = np.where(data['correct_manufacturer_match'].isna(), data['best_manufacturer_match'], data['correct_manufacturer_match'])
     
-    df['go_to_match'] = np.where(df['go_to_match'].isna(), df['best_manufacturer_match'], df['go_to_match'])
-    
-    print(df.head())
-    
-    print(df.shape)
+    print(data.head())
     
     return df
     

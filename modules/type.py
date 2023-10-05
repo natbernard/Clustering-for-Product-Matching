@@ -9,15 +9,16 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-def type_cleanup(data, product_list):
-    product_list_df = product_list[['Product Name', 'Type']].\
+def type_cleanup(data, iprocure_product_df):
+    product_list_df = iprocure_product_df[['Product Name', 'Type']].\
                                     applymap(lambda x: str(x).lower().strip()).\
                                     drop_duplicates(subset=['Product Name', 'Type'], keep='first').\
                                     reset_index(drop=True)
                                     
     df = data[['correct_product_match',	'product_type']].\
+                                    applymap(lambda x: str(x).lower().strip()).\
                                     drop_duplicates(subset=['correct_product_match', 'product_type'], keep='first').\
-                                    applymap(lambda x: str(x).lower().strip())
+                                    reset_index(drop=True)
                                     
     # extracting number and unit parts
     def extract_parts(value):
@@ -31,14 +32,14 @@ def type_cleanup(data, product_list):
         else:
             return value, value
         
-    # Apply the function to the column and create new columns
+    # applying the function to the column and create new columns
     product_list_df[['number', 'unit']] = product_list_df['Type'].apply(lambda x: pd.Series(extract_parts(str(x))))
     df[['number', 'unit']] = df['product_type'].apply(lambda x: pd.Series(extract_parts(str(x))))
     
     units = product_list_df['unit'].unique().tolist()
     units_df = df['unit'].drop_duplicates(keep='first').reset_index(drop=True).to_frame()
 
-    # cleanup function
+    # cleanup function to clean units
     def compare(i):
         comparison = {}
         if isinstance(i, str):
@@ -58,12 +59,13 @@ def type_cleanup(data, product_list):
             match.append(None)
             score.append(None)
 
-        return pd.Series([unit, match, score], index = ['type', 'match', 'score'])
+        return pd.Series([unit, match, score], index = ['unit', 'match', 'score'])
 
     cleaned_types_df = pd.DataFrame()
     cleaned_types_df[['unit', 'match', 'score']] = units_df['unit'].apply(lambda x: compare(x))
     cleaned_types_df = cleaned_types_df.applymap(lambda x: x[0] if x else '')
 
+    # clustering unmatched units
     to_cluster_df = cleaned_types_df[cleaned_types_df['score'] < 0.7].reset_index(drop=True)
     
     matched = []
@@ -74,11 +76,11 @@ def type_cleanup(data, product_list):
         else:
             compare.update({i: get_close_matches(i, to_cluster_df['unit'].to_list(), 20, 0.7)})
         matched.extend([item for sublist in compare.values() for item in sublist])
-        manufacturer_slice = list(compare.keys())
+        unit = list(compare.keys())
         match = []
         for key, items in compare.items():
             match.append(items)
-        return pd.Series([manufacturer_slice, match],index=['manufacturer_slice', 'match'])
+        return pd.Series([unit, match], index=['unit', 'match'])
 
 
     cluster_cleaned_df = pd.DataFrame()
@@ -151,7 +153,7 @@ def type_cleanup(data, product_list):
     add_correct_product_type_column(df)
     
     df = df[['correct_product_match', 'product_type', 'correct_product_type']].\
-                drop_duplicates(subset=['product_type', 'correct_product_type'], keep='first')
+                drop_duplicates(subset=['correct_product_match', 'correct_product_type'], keep='first')
 
     print(df.head(20))
     
