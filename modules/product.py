@@ -149,10 +149,12 @@ def master_string_matching(products_df, master_df, unique_clustered_data):
     products_df['product_name'] = products_df['product_name'].apply(lambda x: x.lower().strip() if isinstance(x, str) else x)
     products_df = products_df.merge(unique_clustered_data[['product_name', 'correct_product_match']], how='left', on='product_name')
     products_df['correct_product_match'] = np.where(products_df['correct_product_match'].isna(), products_df['best_product_match'], products_df['correct_product_match'])
-        
+    
+    print(products_df.head()) 
+       
     return products_df
-    
-    
+
+
     
 
 if __name__ == "__main__":

@@ -6,13 +6,13 @@ from difflib import SequenceMatcher, get_close_matches
 import warnings
 warnings.filterwarnings("ignore")
 
-def category_cleanup(iprocure_product_df, data):
+def category_cleanup(data, iprocure_product_df):
     product_list = iprocure_product_df[['Product Name', 'Category', 'Sub category']].applymap(lambda x: str(x).lower().strip())\
                     .drop_duplicates(subset=['Product Name'], keep='first')\
                     .rename(columns={'Product Name': 'product_name'})\
                     .reset_index(drop=True)             
     
-    df = data[['correct_product_match', 'category_name', 'sub_category']].applymap(lambda x: str(x).lower().strip())\
+    df = data[['correct_product_match', 'product_category', 'sub_category']].applymap(lambda x: str(x).lower().strip())\
                     .drop_duplicates(subset=['correct_product_match'], keep='first')\
                     .rename(columns={'correct_product_match': 'product_name'})\
                     .reset_index(drop=True)
@@ -20,7 +20,7 @@ def category_cleanup(iprocure_product_df, data):
     df = df.merge(product_list, how='left', on='product_name')
     
     # cleaning categories
-    df['Category'] = np.where(df['Category'].isna(), df['category_name'], df['Category'])  
+    df['Category'] = np.where(df['Category'].isna(), df['product_category'], df['Category'])  
              
     categories = product_list['Category'].unique().tolist()
     
@@ -58,7 +58,7 @@ def category_cleanup(iprocure_product_df, data):
     
     df = df.merge(category_matches_df[['Category', 'match']], how='left', on='Category')
     df['match'] = np.where(df['match'].isna(), df['Category'], df['match'])
-    df = df.drop(['category_name', 'Category'], axis = 1).\
+    df = df.drop(['product_category', 'Category'], axis = 1).\
             rename(columns={'match': 'correct_category_name'})
     
     # cleaning subcategories
@@ -71,8 +71,10 @@ def category_cleanup(iprocure_product_df, data):
     
     data['correct_product_match'] = data['correct_product_match'].apply(lambda x: str(x).lower().strip())
     data = data.merge(df[['correct_product_match', 'correct_category_name', 'correct_sub_category']], how='left', on='correct_product_match')
-        
-    return df
+    
+    print(data.head()) 
+       
+    return data
 
 
 if __name__ == "__main__":

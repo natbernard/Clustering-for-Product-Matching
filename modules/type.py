@@ -154,8 +154,11 @@ def type_cleanup(data, iprocure_product_df):
     
     df = df[['correct_product_match', 'product_type', 'correct_product_type']].\
                 drop_duplicates(subset=['correct_product_match', 'correct_product_type'], keep='first')
+                
+    data[['correct_product_match', 'product_type']] = data[['correct_product_match', 'product_type']].applymap(lambda x: str(x).lower().strip())
+    data = data.merge(df[['correct_product_match', 'product_type', 'correct_product_type']], how='left', on=['correct_product_match', 'product_type'])
 
-    print(df.head(20))
+    print(data.head(20))
     
     return df
 
