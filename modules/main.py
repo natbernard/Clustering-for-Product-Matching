@@ -22,7 +22,7 @@ from google.cloud import bigquery
 import warnings
 warnings.filterwarnings('ignore')
 
-service_account_json = '/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/modules/credentials.json'
+service_account_json = '/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/bigquery_credentials/credentials.json'
 tmp_bucket = 'iprocure-edw'
 project_id = 'iprocure-edw'
 table_id = 'iprocure-edw.iprocure_edw.products_cleaned'
