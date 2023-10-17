@@ -1,14 +1,3 @@
-import sys
-import os
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(current_dir)
-
-from product import matching_by_clustering, internal_string_matching, master_string_matching
-from manufacturer import manufacturer_clustering
-from category import category_cleanup
-from type import type_cleanup
-
 import pandas as pd
 import numpy as np
 import re
@@ -17,6 +6,20 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import silhouette_score
 from difflib import SequenceMatcher, get_close_matches
 from google.cloud import bigquery
+import sys
+import os
+
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+sys.path.append(
+    parent_dir
+)
+
+from data_cleaning.product import matching_by_clustering, internal_string_matching, master_string_matching
+from data_cleaning.manufacturer import manufacturer_clustering
+from data_cleaning.category import category_cleanup
+from data_cleaning.type import type_cleanup
+
+
 
 
 import warnings
