@@ -23,26 +23,26 @@ def matching_by_clustering(data):
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform(unique_names)
     
-    # clustering product names
-    def optimal_clusters(matrix):
-        clusters = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
-        silhouette_scores = []
+    # # clustering product names
+    # def optimal_clusters(matrix):
+    #     clusters = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
+    #     silhouette_scores = []
         
-        for cluster in clusters:
-            kmeans = KMeans(n_clusters=cluster,random_state=42)
-            kmeans.fit(matrix)
-            cluster_labels = kmeans.labels_
+    #     for cluster in clusters:
+    #         kmeans = KMeans(n_clusters=cluster,random_state=42)
+    #         kmeans.fit(matrix)
+    #         cluster_labels = kmeans.labels_
             
-            silhouette_avg = silhouette_score(matrix, cluster_labels)
-            silhouette_scores.append(silhouette_avg)
+    #         silhouette_avg = silhouette_score(matrix, cluster_labels)
+    #         silhouette_scores.append(silhouette_avg)
             
-        optimal_num_clusters = clusters[silhouette_scores.index(max(silhouette_scores))]
+    #     optimal_num_clusters = clusters[silhouette_scores.index(max(silhouette_scores))]
         
-        return optimal_num_clusters
+    #     return optimal_num_clusters
     
-    cluster_size = optimal_clusters(tfidf_matrix)
+    # cluster_size = optimal_clusters(tfidf_matrix)
     
-    kmeans = KMeans(n_clusters=cluster_size, random_state=42).fit(tfidf_matrix)
+    kmeans = KMeans(n_clusters=10000, random_state=42).fit(tfidf_matrix)
     labels = kmeans.labels_
     
     # creating a dataframe of the clusters
