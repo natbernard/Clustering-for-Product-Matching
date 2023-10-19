@@ -4,6 +4,8 @@ WORKDIR /app
 
 COPY . .
 
+RUN chmod 777 .
+
 RUN pip install --upgrade pip setuptools wheel build
 
 RUN pip install -r requirements.txt
