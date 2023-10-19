@@ -8,7 +8,6 @@ from difflib import SequenceMatcher, get_close_matches
 from google.cloud import bigquery
 import sys
 import os
-from pyspark.sql import SparkSession
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 sys.path.append(
@@ -20,42 +19,34 @@ from data_cleaning.manufacturer import manufacturer_clustering
 from data_cleaning.category import category_cleanup
 from data_cleaning.type import type_cleanup
 
+
+
+
 import warnings
 warnings.filterwarnings('ignore')
 
-
-def read_from_bqtable(bquery):
-    client = bigquery.Client()
-    bq_data = client.query(bquery).to_dataframe()
-    return bq_data
-
-def write_table_to_bigquery(mode, dataset, table, bucket):
-        df.write. \
-        format("bigquery"). \
-        mode(mode). \
-        option("checkpointLocation", "gs://{0}/{1}".format(bucket, "restore-point")). \
-        option("temporaryGcsBucket", bucket). \
-        save("{0}.{1}".format(dataset, table))
-
-
-service_account_json = '../bigquery_credentials/credentials.json'
+service_account_json = '/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/bigquery_credentials/credentials.json'
 tmp_bucket = 'iprocure-edw'
-dataset_name = 'iprocure-edw.iprocure_edw'
-table_name = 'products_cleaned_2.0'
 project_id = 'iprocure-edw'
 table_id = 'iprocure-edw.iprocure_edw.products_cleaned'
 query = f"""
         SELECT *
         FROM {table_id}
         """
+
+def read_from_bqtable(bquery):
+    client = bigquery.Client.from_service_account_json(service_account_json)
+    bq_data = client.query(bquery).to_dataframe()
+    return bq_data
+
+print('Finished reading from BQ!')
+
+original_data = read_from_bqtable(query)
 master_df = f'gs://{tmp_bucket}/data-cleaning/master_list.csv'
 iprocure_product_df = f'gs://{tmp_bucket}/data-cleaning/iprocure_products.csv'
 
-original_data = read_from_bqtable(query)
-print('Finished reading from BQ!')
-
 clustered_data = matching_by_clustering(original_data)
-print('Finished first step!')
+print('Finished step 1!')
 
 unique_clustered_data = internal_string_matching(clustered_data)
 print('Finished step 2!')
@@ -70,16 +61,18 @@ df = category_cleanup(df, iprocure_product_df)
 print('Finished step 5!')
 
 df = type_cleanup(df, iprocure_product_df)
-print('Finished last step!')
+print('Finished step 6!')
 
-spark = SparkSession.\
-                builder.\
-                appName("pandas-to-spark").\
-                getOrCreate()
+df.to_csv('cleaned_products.csv', index=False)
 
-spark_df = spark.createDataFrame(df)
+print(df.head())
 
-write_table_to_bigquery(mode="append",
-                        dataset=dataset_name,
-                        table=table_name,
-                        bucket=tmp_bucket)
+
+
+
+
+
+
+
+
+
