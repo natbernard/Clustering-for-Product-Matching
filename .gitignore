@@ -3,3 +3,5 @@ data_v2
 reference_codes
 bigquery_credentials
 env
+dist
+*.egg-info
