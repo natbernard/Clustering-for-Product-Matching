@@ -78,8 +78,8 @@ def category_cleanup(data, iprocure_product_df):
 
 
 if __name__ == "__main__":
-    iprocure_product_df = pd.read_excel('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v2/product_list.xlsx')   
-    category_data = pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v2/dirty_category_data.csv')
+    iprocure_product_df = pd.read_excel('../data/data_v2/product_list.xlsx')   
+    category_data = pd.read_csv('../data/data_v2/dirty_category_data.csv')
     
     category_cleanup(iprocure_product_df, category_data)
     

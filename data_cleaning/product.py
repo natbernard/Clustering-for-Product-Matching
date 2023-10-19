@@ -158,8 +158,8 @@ def master_string_matching(products_df, master_df, unique_clustered_data):
     
 
 if __name__ == "__main__":
-    master_df = pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v1/master_list.csv')
-    data = pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v2/subsequent_unmatched_products.csv')
+    master_df = pd.read_csv('../data/data_v1/master_list.csv')
+    data = pd.read_csv('../data/data_v2/subsequent_unmatched_products.csv')
     
     clustered_data = matching_by_clustering(data)
     unique_clustered_data = internal_string_matching(clustered_data)

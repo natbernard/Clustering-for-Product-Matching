@@ -163,8 +163,8 @@ def type_cleanup(data, iprocure_product_df):
     return df
 
 def main():
-    iprocure_product_df = pd.read_excel('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v2/product_list.xlsx')
-    data = pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v2/dirty_product_types.csv')
+    iprocure_product_df = pd.read_excel('../data/data_v2/product_list.xlsx')
+    data = pd.read_csv('../data/data_v2/dirty_product_types.csv')
     
     type_cleanup(data, iprocure_product_df)
     

@@ -203,6 +203,6 @@ def manufacturer_clustering(data, master_df):
     
 
 if __name__ == "__main__":
-    data =  pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v2/subsequent_manufacturers.csv')
-    master_df = pd.read_csv('/home/natasha/Documents/Iprocure/Clustering-for-Product-Matching/data/data_v1/master_list.csv')
+    data =  pd.read_csv('../data/data_v2/subsequent_manufacturers.csv')
+    master_df = pd.read_csv('../data/data_v1/master_list.csv')
     manufacturer_clustering(data, master_df)
