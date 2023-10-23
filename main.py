@@ -6,15 +6,16 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import silhouette_score
 from difflib import SequenceMatcher, get_close_matches
 from google.cloud import bigquery
+from pyspark.sql import SparkSession
 import sys
 import os
-from pyspark.sql import SparkSession
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 sys.path.append(
     parent_dir
 )
 
+# custom module imports
 from data_cleaning.product import matching_by_clustering, internal_string_matching, master_string_matching
 from data_cleaning.manufacturer import manufacturer_clustering
 from data_cleaning.category import category_cleanup
@@ -23,12 +24,13 @@ from data_cleaning.type import type_cleanup
 import warnings
 warnings.filterwarnings('ignore')
 
-
+# read data function
 def read_from_bqtable(bquery):
     client = bigquery.Client()
     bq_data = client.query(bquery).to_dataframe()
     return bq_data
 
+# write data fuction
 def write_table_to_bigquery(mode, dataset, table, bucket):
         df.write. \
         format("bigquery"). \
@@ -44,16 +46,21 @@ dataset_name = 'iprocure-edw.iprocure_edw'
 table_name = 'products_cleaned_2.0'
 project_id = 'iprocure-edw'
 table_id = 'iprocure-edw.iprocure_edw.products_cleaned'
+
+# query to retrieve data
 query = f"""
         SELECT *
         FROM {table_id}
         """
+        
+# read data from bigquery
 master_df = f'gs://{tmp_bucket}/data-cleaning/master_list.csv'
 iprocure_product_df = f'gs://{tmp_bucket}/data-cleaning/iprocure_products.csv'
 
 original_data = read_from_bqtable(query)
 print('Finished reading from BQ!')
 
+# data processing steps
 clustered_data = matching_by_clustering(original_data)
 print('Finished first step!')
 
@@ -72,6 +79,7 @@ print('Finished step 5!')
 df = type_cleanup(df, iprocure_product_df)
 print('Finished last step!')
 
+# initiating spark session
 spark = SparkSession.\
                 builder.\
                 appName("pandas-to-spark").\
@@ -79,6 +87,7 @@ spark = SparkSession.\
 
 spark_df = spark.createDataFrame(df)
 
+# writing to bigquery
 write_table_to_bigquery(mode="append",
                         dataset=dataset_name,
                         table=table_name,
