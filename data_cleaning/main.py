@@ -9,6 +9,7 @@ from google.cloud import bigquery
 import sys
 import os
 from pyspark.sql import SparkSession
+from pyspark import StorageLevel
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 sys.path.append(
@@ -72,14 +73,18 @@ print('Finished step 5!')
 df = type_cleanup(df, iprocure_product_df)
 print('Finished last step!')
 
+
 spark = SparkSession.\
                 builder.\
                 appName("pandas-to-spark").\
                 getOrCreate()
 
 spark_df = spark.createDataFrame(df)
+spark_df.persist(StorageLevel.MEMORY_ONLY_SER)
 
 write_table_to_bigquery(mode="append",
                         dataset=dataset_name,
                         table=table_name,
                         bucket=tmp_bucket)
+
+spark_df.unpersist()
