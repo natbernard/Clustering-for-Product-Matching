@@ -1,7 +1,9 @@
 data_v1
 data_v2
+clean_prod_datasets
 reference_codes
 bigquery_credentials
+ipos_products.csv
 env
 dist
 *.egg-info

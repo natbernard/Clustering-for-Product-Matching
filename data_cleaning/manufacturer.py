@@ -6,20 +6,20 @@ import re
 
 def manufacturer_clustering(data, master_df):
     # slicing for manufacturer name, match, and match score
-    df = data[['product_manufacturer', 'best_manufacturer_match', 'manufacturer_match_score']].\
+    df = data[['manufacturer_name', 'best_manufacturer_match', 'manufacturer_match_score']].\
                     applymap(lambda x: x.strip().lower() if isinstance(x, str) else x)
                     
     df_manufacturer = df[df['manufacturer_match_score'] < 0.8]
     
-    df_non_dup = df_manufacturer.drop_duplicates(subset='product_manufacturer', keep='first').reset_index(drop=True)
-    df_non_dup['word_count'] = df_non_dup['product_manufacturer'].apply(lambda x: len(x.split()) if isinstance(x, str) else 1)
-    df_non_dup['product_manufacturer'] = df_non_dup['product_manufacturer'].astype('str')
+    df_non_dup = df_manufacturer.drop_duplicates(subset='manufacturer_name', keep='first').reset_index(drop=True)
+    df_non_dup['word_count'] = df_non_dup['manufacturer_name'].apply(lambda x: len(x.split()) if isinstance(x, str) else 1)
+    df_non_dup['manufacturer_name'] = df_non_dup['manufacturer_name'].astype('str')
     
     manufacturer_list = []
 
     for index, row in df_non_dup.iterrows():
         word_count = row['word_count']
-        manufacturer_name = row['product_manufacturer']
+        manufacturer_name = row['manufacturer_name']
         
         if word_count in [1,2]:
             manufacturer_slice = manufacturer_name.strip().split()[:1]
@@ -75,14 +75,14 @@ def manufacturer_clustering(data, master_df):
     similar_strings = []
 
     for i, row in df_non_dup.iterrows():
-        string = row['product_manufacturer']
+        string = row['manufacturer_name']
         value = row['match']
         
         # Check if any other row has a similar value in 'col2'
         similar_rows = df_non_dup[df_non_dup['match'].apply(lambda x: x == value)]
         
         # Extract the strings from 'col1' in similar rows
-        similar_strings.append(similar_rows['product_manufacturer'].tolist())
+        similar_strings.append(similar_rows['manufacturer_name'].tolist())
 
     df_similar_strings = pd.DataFrame({'similar_strings': similar_strings})
     df_similar_strings = df_similar_strings['similar_strings'].drop_duplicates(keep='first').to_frame().reset_index(drop=True)
@@ -129,10 +129,10 @@ def manufacturer_clustering(data, master_df):
     # cleaning against master list
     cluster_word_freq_df['cluster_name'] = cluster_word_freq_df['cluster_name'].astype('str')
     
-    master_list['manufacturer_name'] = master_df['manufacturer_name'].astype('str')    
+    master_df['manufacturer_name'] = master_df['manufacturer_name'].astype('str')    
 
     matches_cache = {}
-    master_list = master_list['manufacturer_name'].to_list()
+    master_list = master_df['manufacturer_name'].to_list()
 
     def get_closest_match(word, possibilities: list[str]):
         word = str(word).lower()
@@ -161,7 +161,7 @@ def manufacturer_clustering(data, master_df):
     # picking between original best match and new cluster name 
     def compare(row):
         comparison = {}
-        i = row['product_manufacturer']
+        i = row['manufacturer_name']
         prods_list = row[['cluster_name', 'best_manufacturer_match']].tolist()
         if isinstance(i, str):
             comparison.update({i: get_close_matches(i, prods_list, n=1, cutoff=0.1)})
@@ -185,7 +185,7 @@ def manufacturer_clustering(data, master_df):
     def convert_to_string(value):
         return str(value)
 
-    columns_to_convert = ['product_manufacturer', 'cluster_name', 'best_manufacturer_match']
+    columns_to_convert = ['manufacturer_name', 'cluster_name', 'best_manufacturer_match']
     df_non_dup[columns_to_convert] = df_non_dup[columns_to_convert].applymap(convert_to_string)
     
     df_non_dup[['final_match', 'score']] = df_non_dup.apply(lambda row: compare(row), axis=1)
@@ -193,16 +193,17 @@ def manufacturer_clustering(data, master_df):
     df_non_dup['score'] = df_non_dup['score'].apply(lambda x: x[0])    
     df_non_dup['correct_manufacturer_match'] = np.where(df_non_dup['score'] >= 0.8, df_non_dup['final_match'], df_non_dup['cluster_name'])
     
-    data['product_manufacturer'] = data['product_manufacturer'].apply(lambda x: x.strip().lower() if isinstance(x, str) else x)
-    data = data.merge(df_non_dup[['product_manufacturer', 'correct_manufacturer_match']], how='left', on='product_manufacturer')
-    data['correct_manufacturer_match'] = np.where(data['correct_manufacturer_match'].isna(), data['best_manufacturer_match'], data['correct_manufacturer_match'])
+    # data['product_manufacturer'] = data['product_manufacturer'].apply(lambda x: x.strip().lower() if isinstance(x, str) else x)
+    # data = data.merge(df_non_dup[['product_manufacturer', 'correct_manufacturer_match']], how='left', on='product_manufacturer')
+    # data['correct_manufacturer_match'] = np.where(data['correct_manufacturer_match'].isna(), data['best_manufacturer_match'], data['correct_manufacturer_match'])
     
-    print(data.head())
+    print(df_non_dup.head())
     
-    return data
+    # return data
     
 
 if __name__ == "__main__":
     data =  pd.read_csv('../data/data_v2/subsequent_manufacturers.csv')
+    data = data[:100]
     master_df = pd.read_csv('../data/data_v1/master_list.csv')
     manufacturer_clustering(data, master_df)

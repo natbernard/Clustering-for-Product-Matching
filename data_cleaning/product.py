@@ -13,12 +13,18 @@ warnings.filterwarnings('ignore')
 
 def matching_by_clustering(data):
     # slicing product name, match, and match score
+    print(data.head())
     df = data[['product_name', 'best_product_match', 'product_match_score']].\
                 applymap(lambda x: x.lower().strip() if isinstance(x, str) else x)
 
+    print(df.head())
+    
     # getting records with match score less than 80%
     to_cluster = df[df['product_match_score'] < 0.8]
-    unique_names = to_cluster['product_name'].unique()
+    unique_names = to_cluster['product_name'].dropna().unique()
+    
+    print(len(unique_names))
+    print(unique_names)
     
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform(unique_names)
@@ -158,12 +164,18 @@ def master_string_matching(products_df, master_df, unique_clustered_data):
     
 
 if __name__ == "__main__":
-    master_df = pd.read_csv('../data/data_v1/master_list.csv')
-    data = pd.read_csv('../data/data_v2/subsequent_unmatched_products.csv')
+    # master_df = pd.read_csv('../data/data_v1/master_list.csv')
+    # data = pd.read_csv('../data/data_v2/subsequent_unmatched_products.csv')
     
-    clustered_data = matching_by_clustering(data)
-    unique_clustered_data = internal_string_matching(clustered_data)
-    master_string_matching(data, master_df, unique_clustered_data)
+    master_df = master_df = pd.read_csv('../data/data_v1/master_list.csv')
+    iprocure_product_df = pd.read_excel('../data/data_v2/product_list.xlsx')   
+    data = pd.read_csv('../ipos_products.csv')
+
+    matching_by_clustering(data)
+    
+    # clustered_data = matching_by_clustering(data)
+    # unique_clustered_data = internal_string_matching(clustered_data)
+    # master_string_matching(data, master_df, unique_clustered_data)
     
 
 

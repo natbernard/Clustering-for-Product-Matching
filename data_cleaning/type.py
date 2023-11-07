@@ -141,6 +141,7 @@ def type_cleanup(data, iprocure_product_df):
     df = df.merge(cluster_cleaned_df[['unit', 'cluster_name']], how='left', on='unit')
     df['match'] = np.where(df['match'].isna(), df['cluster_name'], df['match'])
     df['match'] = np.where(df['match'].isna(), df['unit'], df['match'])
+    df['match'] = np.where(df['match'].isna(), df['product_type'], df['match'])
 
     def add_correct_product_type_column(df):
         def is_numeric(value):
@@ -153,7 +154,7 @@ def type_cleanup(data, iprocure_product_df):
     add_correct_product_type_column(df)
     
     df = df[['correct_product_match', 'product_type', 'correct_product_type']].\
-                drop_duplicates(subset=['correct_product_match', 'correct_product_type'], keep='first')
+                drop_duplicates(subset=['correct_product_match', 'product_type', 'correct_product_type'], keep='first')
                 
     data[['correct_product_match', 'product_type']] = data[['correct_product_match', 'product_type']].applymap(lambda x: str(x).lower().strip())
     data = data.merge(df[['correct_product_match', 'product_type', 'correct_product_type']], how='left', on=['correct_product_match', 'product_type'])
