@@ -6,27 +6,29 @@ from difflib import SequenceMatcher, get_close_matches
 import warnings
 warnings.filterwarnings("ignore")
 
-def category_cleanup(data, iprocure_product_df):
-    print(iprocure_product_df.columns)
-    
+def category_cleanup(data, iprocure_product_df):    
     product_list = iprocure_product_df[['Product Name', 'Category', 'Sub category']].applymap(lambda x: str(x).lower().strip())\
                     .drop_duplicates(subset=['Product Name'], keep='first')\
                     .rename(columns={'Product Name': 'product_name'})\
-                    .reset_index(drop=True)             
+                    .reset_index(drop=True)  
+                    
+    categories = product_list['Category'].unique().tolist()           
     
     df = data[['product_name', 'product_category', 'sub_category']].applymap(lambda x: str(x).lower().strip())\
-                    .drop_duplicates(subset=['product_name'], keep='first')\
                     .rename(columns={'product_name': 'product_name'})\
                     .reset_index(drop=True)
+                    
+    category_mask = df['product_category'].isin(categories)
+    no_category_mask = ~df['product_name'].isin(df.loc[category_mask, 'product_name'])
+    keep_rows_mask = category_mask | no_category_mask
     
-    df =  df[df['product_name'] == 'rope']
-           
+    df = df[keep_rows_mask].drop_duplicates(subset=['product_name'], keep='first')
+
     df = df.merge(product_list, how='left', on='product_name')
     
     # cleaning categories
     df['Category'] = np.where(df['Category'].isna(), df['product_category'], df['Category'])  
              
-    categories = product_list['Category'].unique().tolist()
     
     wrong_categories_df = df[~df['Category'].isin(categories)]
     wrong_categories_df = wrong_categories_df.drop_duplicates(subset='Category', keep='first')
@@ -74,7 +76,6 @@ def category_cleanup(data, iprocure_product_df):
     df = df.drop_duplicates(subset=['product_name'], keep='first').reset_index(drop=True)
     
     data['product_name'] = data['product_name'].apply(lambda x: str(x).lower().strip())
-    data = data[data['product_name'] == 'rope']
     
     data = data.merge(df[['product_name', 'correct_category_name', 'correct_sub_category']], how='left', on='product_name')
     
@@ -89,7 +90,7 @@ def category_cleanup(data, iprocure_product_df):
 
 if __name__ == "__main__":
     iprocure_product_df = pd.read_excel('../data/data_v2/product_list.xlsx')   
-    category_data = pd.read_csv('../ipos_products.csv')
+    category_data = pd.read_csv('../clean_prod_datasets/ipos_products.csv')
     
     category_cleanup(category_data, iprocure_product_df)
     

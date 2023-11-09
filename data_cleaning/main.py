@@ -47,18 +47,12 @@ def write_table_to_bigquery(mode, data, dataset, table, bucket):
 # # STEP 1: Product names
 # def matching_by_clustering(data):
 #     # slicing product name, match, and match score
-#     print(data.head())
 #     df = data[['product_name', 'best_product_match', 'product_match_score']].\
 #                 applymap(lambda x: x.lower().strip() if isinstance(x, str) else x)
-
-#     print(df.head())
     
 #     # getting records with match score less than 80%
 #     to_cluster = df[df['product_match_score'] < 0.8]
 #     unique_names = to_cluster['product_name'].dropna().unique()
-    
-#     print(len(unique_names))
-#     print(unique_names)
     
 #     vectorizer = TfidfVectorizer()
 #     tfidf_matrix = vectorizer.fit_transform(unique_names)
@@ -94,33 +88,35 @@ def write_table_to_bigquery(mode, data, dataset, table, bucket):
         
 #     cluster_df = pd.DataFrame.from_dict(cluster_to_name.items())
 #     cluster_df.rename(columns={0: 'cluster_id', 1: 'product_names'}, inplace=True)
-#     cluster_df.set_index('cluster_id', inplace=True)
     
 #     unique_names_df = pd.DataFrame({'product_name': unique_names,
 #                                     'label': labels})
     
-#     # extracting most common words from each cluster in order
-#     cluster_word_freq = {}
+#     # # extracting most common words from each cluster in order
+#     # cluster_word_freq = {}
 
-#     for doc, cluster_label in zip(unique_names, labels):
-#         words = re.split(r'\s+|-|\(|\)|/|\\|\||,', doc)
-#         for word in words:
-#             if cluster_label in cluster_word_freq:
-#                 cluster_word_freq[cluster_label][word] = cluster_word_freq[cluster_label].get(word, 0) + 1
-#             else:
-#                 cluster_word_freq[cluster_label] = {word: 1}
+#     # for doc, cluster_label in zip(unique_names, labels):
+#     #     words = re.split(r'\s+|-|\(|\)|/|\\|\||,', doc)
+#     #     for word in words:
+#     #         if cluster_label in cluster_word_freq:
+#     #             cluster_word_freq[cluster_label][word] = cluster_word_freq[cluster_label].get(word, 0) + 1
+#     #         else:
+#     #             cluster_word_freq[cluster_label] = {word: 1}
         
-#     for cluster_label in cluster_word_freq:
-#         cluster_word_freq[cluster_label] = sorted(cluster_word_freq[cluster_label].items(), key=lambda x: x[1], reverse=True)
+#     # for cluster_label in cluster_word_freq:
+#     #     cluster_word_freq[cluster_label] = sorted(cluster_word_freq[cluster_label].items(), key=lambda x: x[1], reverse=True)
         
-#     cluster_word_freq_df = pd.DataFrame.from_dict(cluster_word_freq.items())
-#     cluster_word_freq_df.rename(columns={0: 'label', 1: 'word_freq'}, inplace=True)
+#     # cluster_word_freq_df = pd.DataFrame.from_dict(cluster_word_freq.items())
+#     # cluster_word_freq_df.rename(columns={0: 'label', 1: 'word_freq'}, inplace=True)
 
-#     cluster_word_freq_df['cluster_name'] = cluster_word_freq_df['word_freq'].apply(lambda x: ' '.join(word[0] for word in x[:3] if word[0] != ' '))
+#     # cluster_word_freq_df['cluster_name'] = cluster_word_freq_df['word_freq'].apply(lambda x: ' '.join(word[0] for word in x[:3] if word[0] != ' '))
+    
+#     cluster_df['cluster_name'] = cluster_df['product_names'].apply(lambda x: x[0])
+#     cluster_df = cluster_df.rename(columns={'cluster_id': 'label'})
     
 #     # merging cluster names with original product names
 #     merge_df = to_cluster.merge(unique_names_df, how='left', on='product_name')
-#     merge_df = merge_df.merge(cluster_word_freq_df[['label', 'cluster_name']], how='left', on='label')
+#     merge_df = merge_df.merge(cluster_df[['label', 'cluster_name']], how='left', on='label')
         
 #     return merge_df
     
@@ -211,239 +207,169 @@ def write_table_to_bigquery(mode, data, dataset, table, bucket):
 
 
 
-# # STEP 4: Manufacturer names
-# def manufacturer_clustering(data, master_df):
-#     # slicing for manufacturer name, match, and match score
-#     df = data[['product_manufacturer', 'best_manufacturer_match', 'manufacturer_match_score']].\
-#                     applymap(lambda x: x.strip().lower() if isinstance(x, str) else x)
+# STEP 4: Manufacturer names
+def manufacturer_clustering(data, master_df):
+    # slicing for manufacturer name, match, and match score
+    df = data[['product_manufacturer', 'best_manufacturer_match', 'manufacturer_match_score']].\
+                    applymap(lambda x: x.strip().lower() if isinstance(x, str) else x)
         
-#     df_manufacturer = df[df['manufacturer_match_score'] < 0.8]
+    df_manufacturer = df[df['manufacturer_match_score'] < 0.8]
         
-#     df_non_dup = df_manufacturer.drop_duplicates(subset='product_manufacturer', keep='first').reset_index(drop=True)
-#     df_non_dup['word_count'] = df_non_dup['product_manufacturer'].apply(lambda x: len(x.split()) if isinstance(x, str) else 1)
-#     df_non_dup['product_manufacturer'] = df_non_dup['product_manufacturer'].astype('str')
+    df_non_dup = df_manufacturer.drop_duplicates(subset='product_manufacturer', keep='first').reset_index(drop=True)
+    df_non_dup['word_count'] = df_non_dup['product_manufacturer'].apply(lambda x: len(x.split()) if isinstance(x, str) else 1)
+    df_non_dup['product_manufacturer'] = df_non_dup['product_manufacturer'].astype('str')
     
-#     manufacturer_list = []
+    manufacturer_list = []
 
-#     for index, row in df_non_dup.iterrows():
-#         word_count = row['word_count']
-#         manufacturer_name = row['product_manufacturer']
+    for index, row in df_non_dup.iterrows():
+        word_count = row['word_count']
+        manufacturer_name = row['product_manufacturer']
         
-#         if word_count in [1,2]:
-#             manufacturer_slice = manufacturer_name.strip().split()[:1]
-#             manufacturer_list.append(' '.join(manufacturer_slice))
-#         elif word_count in [3,4,5]:
-#             manufacturer_slice = manufacturer_name.strip().split()[:2]
-#             manufacturer_list.append(' '.join(manufacturer_slice))
-#         else:
-#             manufacturer_slice = manufacturer_name.strip().split()[:3]
-#             manufacturer_list.append(' '.join(manufacturer_slice))
+        if word_count in [1,2]:
+            manufacturer_slice = manufacturer_name.strip().split()[:1]
+            manufacturer_list.append(' '.join(manufacturer_slice))
+        elif word_count in [3,4,5]:
+            manufacturer_slice = manufacturer_name.strip().split()[:2]
+            manufacturer_list.append(' '.join(manufacturer_slice))
+        else:
+            manufacturer_slice = manufacturer_name.strip().split()[:3]
+            manufacturer_list.append(' '.join(manufacturer_slice))
             
-#     df_non_dup['manufacturer_slice'] = manufacturer_list  
+    df_non_dup['manufacturer_slice'] = manufacturer_list  
     
-#     df_manufacturer_slice = df_non_dup['manufacturer_slice'].\
-#                                         drop_duplicates(keep='first').\
-#                                         to_frame().\
-#                                         reset_index(drop=True)
+    df_manufacturer_slice = df_non_dup['manufacturer_slice'].\
+                                        drop_duplicates(keep='first').\
+                                        to_frame().\
+                                        reset_index(drop=True)
     
-#     # grouping similar manufacturer names
-#     matched = []
-#     def compare(i):
-#         compare = {}
-#         if i in matched:
-#             compare.update({i: ''})
-#         else:
-#             compare.update({i: get_close_matches(i, df_manufacturer_slice['manufacturer_slice'].to_list(), 20, 0.80)})
-#         matched.extend([item for sublist in compare.values() for item in sublist])
-#         manufacturer_slice = list(compare.keys())
-#         match = []
-#         for key, items in compare.items():
-#             match.append(items)
-#         return pd.Series([manufacturer_slice, match],index=['manufacturer_slice', 'match'])
-
-#     cleaned_manufacturers_df = pd.DataFrame()
-#     cleaned_manufacturers_df[['manufacturer_slice', 'match']] = df_manufacturer_slice['manufacturer_slice'].apply(lambda x: compare(x))
-#     cleaned_manufacturers_df = cleaned_manufacturers_df.applymap(lambda x: x[0] if x else '')
-    
-#     cleaned_manufacturers_df['manufacturer_slice'] = cleaned_manufacturers_df['manufacturer_slice'].astype('str')
-    
-#     for i, row in cleaned_manufacturers_df.iterrows():
-#         string = row['manufacturer_slice']
-#         lst = row['match']
-        
-#         if not lst:
-#             for prev_i in range(i):
-#                 prev_lst = cleaned_manufacturers_df.at[prev_i, 'match']
-#                 if string in prev_lst:
-#                     cleaned_manufacturers_df.at[i, 'match'] = prev_lst
-#                     break  
-    
-#     df_non_dup = pd.merge(df_non_dup, cleaned_manufacturers_df, how='left', on='manufacturer_slice')
-    
-#     similar_strings = []
-
-#     for i, row in df_non_dup.iterrows():
-#         string = row['product_manufacturer']
-#         value = row['match']
-        
-#         # Check if any other row has a similar value in 'col2'
-#         similar_rows = df_non_dup[df_non_dup['match'].apply(lambda x: x == value)]
-        
-#         # Extract the strings from 'col1' in similar rows
-#         similar_strings.append(similar_rows['product_manufacturer'].tolist())
-
-#     df_similar_strings = pd.DataFrame({'similar_strings': similar_strings})
-#     df_similar_strings = df_similar_strings['similar_strings'].drop_duplicates(keep='first').to_frame().reset_index(drop=True)
-    
-#     df_unique_match = df_non_dup['match'].\
-#                             drop_duplicates(keep='first').\
-#                             to_frame().\
-#                             reset_index(drop=True)
-                            
-#     df_unique_match = pd.concat([df_unique_match, df_similar_strings],axis = 1)
-#     df_unique_match['average_length'] = df_unique_match['similar_strings'].\
-#                                                     apply(lambda x: round(sum(len(word.split()) for word in x) / len(x), 0))
-#     df_unique_match['similar_strings'] = df_unique_match['similar_strings'].apply(lambda x: ' '.join(x))
-    
-#     # extracting most common words from each cluster in order
-#     cluster_word_freq = {}
-
-#     for id, row in df_unique_match.iterrows():
-#         cluster = row['similar_strings']
-        
-#         words = re.split(r'\s+|-|\(|\)|/|\\|\||,', cluster)
-#         for word in words:
-#             if id in cluster_word_freq:
-#                 cluster_word_freq[id][word] = cluster_word_freq[id].get(word, 0) + 1
-#             else:
-#                 cluster_word_freq[id] = {word: 1}
-        
-#     for id in cluster_word_freq:
-#         cluster_word_freq[id] = sorted(cluster_word_freq[id].items(), key=lambda x: x[1], reverse=True)
-
-#     cluster_word_freq_df = pd.DataFrame.from_dict(cluster_word_freq.items())
-#     cluster_word_freq_df.rename(columns={0: 'id', 1: 'word_freq'}, inplace=True)
-    
-#     cluster_word_freq_df = pd.concat([cluster_word_freq_df, df_unique_match[['average_length']]], axis=1)
-
-#     for i, row in cluster_word_freq_df.iterrows():
-#         lst = row['word_freq']
-#         number = int(row['average_length'])
-        
-#         cluster_name = ' '.join(word[0] for word in lst[:number])
-#         cluster_word_freq_df.at[i, 'cluster_name'] = cluster_name
-        
-    
-#     # cleaning against master list
-#     cluster_word_freq_df['cluster_name'] = cluster_word_freq_df['cluster_name'].astype('str')
-    
-#     master_df['manufacturer_name'] = master_df['manufacturer_name'].astype('str')    
-
-#     matches_cache = {}
-#     master_list = master_df['manufacturer_name'].to_list()
-
-#     def get_closest_match(word, possibilities: list[str]):
-#         word = str(word).lower()
-#         if found := matches_cache.get(word):
-#             return found
-
-#         matches = get_close_matches(word, possibilities, n=1, cutoff=0.0)
-#         match = matches[0] if matches else ''
-#         score = round(SequenceMatcher(None, word, match).ratio(), 2)
-#         found = {'best_match': match, 'best_score': score}
-#         matches_cache[word] = found
-
-#         return found
-
-#     found_df = cluster_word_freq_df['cluster_name'].apply(lambda x: get_closest_match(x, master_list))
-#     found_df = found_df.apply(pd.Series)
-
-#     cluster_word_freq_df = pd.concat([cluster_word_freq_df, found_df], axis=1)
-#     cluster_word_freq_df['cluster_name'] = np.where(cluster_word_freq_df['best_score'] >= 0.8, cluster_word_freq_df['best_match'], cluster_word_freq_df['cluster_name'])
-    
-#     df_unique_match = pd.concat([df_unique_match, cluster_word_freq_df], axis=1)
-#     df_unique_match['match'] = df_unique_match['match'].apply(lambda x: ' '.join(x))
-#     df_non_dup['match'] = df_non_dup['match'].apply(lambda x: ' '.join(x))
-#     df_non_dup = df_non_dup.merge(df_unique_match, how='left', on='match')
-
-#     # picking between original best match and new cluster name 
-#     def compare(row):
-#         comparison = {}
-#         i = row['product_manufacturer']
-#         prods_list = row[['cluster_name', 'best_manufacturer_match']].tolist()
-#         if isinstance(i, str):
-#             comparison.update({i: get_close_matches(i, prods_list, n=1, cutoff=0.1)})
-#         product_name = list(comparison.keys()) if comparison else None
-#         match = []
-#         score = []
-#         if comparison:
-#             for key, value in comparison.items():
-#                 if value:
-#                     match.append(value[0])
-#                     score.append(round(SequenceMatcher(None, i, value[0]).ratio(), 2))
-#                 else:
-#                     match.append(None)
-#                     score.append(None)
-#         else:
-#             match.append(None)
-#             score.append(None)
-                    
-#         return pd.Series([match, score], index = ['match', 'score'])
-    
-#     def convert_to_string(value):
-#         return str(value)
-
-#     columns_to_convert = ['product_manufacturer', 'cluster_name', 'best_manufacturer_match']
-#     df_non_dup[columns_to_convert] = df_non_dup[columns_to_convert].applymap(convert_to_string)
-    
-#     df_non_dup[['final_match', 'score']] = df_non_dup.apply(lambda row: compare(row), axis=1)
-#     df_non_dup['final_match'] = df_non_dup['final_match'].apply(lambda x: ' '.join(x))
-#     df_non_dup['score'] = df_non_dup['score'].apply(lambda x: x[0])    
-#     df_non_dup['correct_manufacturer_match'] = np.where(df_non_dup['score'] >= 0.8, df_non_dup['final_match'], df_non_dup['cluster_name'])
-
-#     data['product_manufacturer'] = data['product_manufacturer'].apply(lambda x: x.strip().lower() if isinstance(x, str) else x)
-#     data = data.merge(df_non_dup[['product_manufacturer', 'correct_manufacturer_match']], how='left', on='product_manufacturer')
-#     data['correct_manufacturer_match'] = np.where(data['correct_manufacturer_match'].isna(), data['best_manufacturer_match'], data['correct_manufacturer_match'])
-    
-#     print(data.head())
-    
-#     return data
-
-
-
-
-
-
-
-
-# STEP 5: Categories
-def category_cleanup(data, iprocure_product_df):
-    product_list = iprocure_product_df[['Product Name', 'Category', 'Sub category']].applymap(lambda x: str(x).lower().strip())\
-                    .drop_duplicates(subset=['Product Name'], keep='first')\
-                    .rename(columns={'Product Name': 'product_name'})\
-                    .reset_index(drop=True)             
-    
-    df = data[['correct_product_match', 'product_category', 'sub_category']].applymap(lambda x: str(x).lower().strip())\
-                    .drop_duplicates(subset=['correct_product_match'], keep='first')\
-                    .rename(columns={'correct_product_match': 'product_name'})\
-                    .reset_index(drop=True)
-           
-    df = df.merge(product_list, how='left', on='product_name')
-    
-    # cleaning categories
-    df['Category'] = np.where(df['Category'].isna(), df['product_category'], df['Category'])  
-             
-    categories = product_list['Category'].unique().tolist()
-    
-    wrong_categories_df = df[~df['Category'].isin(categories)]
-    wrong_categories_df = wrong_categories_df.drop_duplicates(subset='Category', keep='first')
-
-    # cleaning against iprocure categories
+    # grouping similar manufacturer names
+    matched = []
     def compare(i):
+        compare = {}
+        if i in matched:
+            compare.update({i: ''})
+        else:
+            compare.update({i: get_close_matches(i, df_manufacturer_slice['manufacturer_slice'].to_list(), 20, 0.80)})
+        matched.extend([item for sublist in compare.values() for item in sublist])
+        manufacturer_slice = list(compare.keys())
+        match = []
+        for key, items in compare.items():
+            match.append(items)
+        return pd.Series([manufacturer_slice, match],index=['manufacturer_slice', 'match'])
+
+    cleaned_manufacturers_df = pd.DataFrame()
+    cleaned_manufacturers_df[['manufacturer_slice', 'match']] = df_manufacturer_slice['manufacturer_slice'].apply(lambda x: compare(x))
+    cleaned_manufacturers_df = cleaned_manufacturers_df.applymap(lambda x: x[0] if x else '')
+    
+    cleaned_manufacturers_df['manufacturer_slice'] = cleaned_manufacturers_df['manufacturer_slice'].astype('str')
+    
+    for i, row in cleaned_manufacturers_df.iterrows():
+        string = row['manufacturer_slice']
+        lst = row['match']
+        
+        if not lst:
+            for prev_i in range(i):
+                prev_lst = cleaned_manufacturers_df.at[prev_i, 'match']
+                if string in prev_lst:
+                    cleaned_manufacturers_df.at[i, 'match'] = prev_lst
+                    break  
+    
+    df_non_dup = pd.merge(df_non_dup, cleaned_manufacturers_df, how='left', on='manufacturer_slice')
+    
+    similar_strings = []
+
+    for i, row in df_non_dup.iterrows():
+        string = row['product_manufacturer']
+        value = row['match']
+        
+        # Check if any other row has a similar value in 'col2'
+        similar_rows = df_non_dup[df_non_dup['match'].apply(lambda x: x == value)]
+        
+        # Extract the strings from 'col1' in similar rows
+        similar_strings.append(similar_rows['product_manufacturer'].tolist())
+
+    df_similar_strings = pd.DataFrame({'similar_strings': similar_strings})
+    df_similar_strings = df_similar_strings['similar_strings'].drop_duplicates(keep='first').to_frame().reset_index(drop=True)
+    
+    df_unique_match = df_non_dup['match'].\
+                            drop_duplicates(keep='first').\
+                            to_frame().\
+                            reset_index(drop=True)
+                            
+    df_unique_match = pd.concat([df_unique_match, df_similar_strings],axis = 1)
+    df_unique_match['average_length'] = df_unique_match['similar_strings'].\
+                                                    apply(lambda x: round(sum(len(word.split()) for word in x) / len(x), 0))
+    df_unique_match['similar_strings'] = df_unique_match['similar_strings'].apply(lambda x: ' '.join(x))
+    
+    # extracting most common words from each cluster in order
+    cluster_word_freq = {}
+
+    for id, row in df_unique_match.iterrows():
+        cluster = row['similar_strings']
+        
+        words = re.split(r'\s+|-|\(|\)|/|\\|\||,', cluster)
+        for word in words:
+            if id in cluster_word_freq:
+                cluster_word_freq[id][word] = cluster_word_freq[id].get(word, 0) + 1
+            else:
+                cluster_word_freq[id] = {word: 1}
+        
+    for id in cluster_word_freq:
+        cluster_word_freq[id] = sorted(cluster_word_freq[id].items(), key=lambda x: x[1], reverse=True)
+
+    cluster_word_freq_df = pd.DataFrame.from_dict(cluster_word_freq.items())
+    cluster_word_freq_df.rename(columns={0: 'id', 1: 'word_freq'}, inplace=True)
+    
+    cluster_word_freq_df = pd.concat([cluster_word_freq_df, df_unique_match[['average_length']]], axis=1)
+
+    for i, row in cluster_word_freq_df.iterrows():
+        lst = row['word_freq']
+        number = int(row['average_length'])
+        
+        cluster_name = ' '.join(word[0] for word in lst[:number])
+        cluster_word_freq_df.at[i, 'cluster_name'] = cluster_name
+        
+    
+    # cleaning against master list
+    cluster_word_freq_df['cluster_name'] = cluster_word_freq_df['cluster_name'].astype('str')
+    
+    master_df['manufacturer_name'] = master_df['manufacturer_name'].astype('str')    
+
+    matches_cache = {}
+    master_list = master_df['manufacturer_name'].to_list()
+
+    def get_closest_match(word, possibilities: list[str]):
+        word = str(word).lower()
+        if found := matches_cache.get(word):
+            return found
+
+        matches = get_close_matches(word, possibilities, n=1, cutoff=0.0)
+        match = matches[0] if matches else ''
+        score = round(SequenceMatcher(None, word, match).ratio(), 2)
+        found = {'best_match': match, 'best_score': score}
+        matches_cache[word] = found
+
+        return found
+
+    found_df = cluster_word_freq_df['cluster_name'].apply(lambda x: get_closest_match(x, master_list))
+    found_df = found_df.apply(pd.Series)
+
+    cluster_word_freq_df = pd.concat([cluster_word_freq_df, found_df], axis=1)
+    cluster_word_freq_df['cluster_name'] = np.where(cluster_word_freq_df['best_score'] >= 0.8, cluster_word_freq_df['best_match'], cluster_word_freq_df['cluster_name'])
+    
+    df_unique_match = pd.concat([df_unique_match, cluster_word_freq_df], axis=1)
+    df_unique_match['match'] = df_unique_match['match'].apply(lambda x: ' '.join(x))
+    df_non_dup['match'] = df_non_dup['match'].apply(lambda x: ' '.join(x))
+    df_non_dup = df_non_dup.merge(df_unique_match, how='left', on='match')
+
+    # picking between original best match and new cluster name 
+    def compare(row):
         comparison = {}
+        i = row['product_manufacturer']
+        prods_list = row[['cluster_name', 'best_manufacturer_match']].tolist()
         if isinstance(i, str):
-            comparison.update({i: get_close_matches(i, categories, n=1, cutoff=0.1)})
-        category = list(comparison.keys()) if comparison else None
+            comparison.update({i: get_close_matches(i, prods_list, n=1, cutoff=0.1)})
+        product_name = list(comparison.keys()) if comparison else None
         match = []
         score = []
         if comparison:
@@ -457,40 +383,109 @@ def category_cleanup(data, iprocure_product_df):
         else:
             match.append(None)
             score.append(None)
-                
-        return pd.Series([category, match, score], index = ['category', 'match', 'score'])
+                    
+        return pd.Series([match, score], index = ['match', 'score'])
+    
+    def convert_to_string(value):
+        return str(value)
 
-    cleaned_categories_df = pd.DataFrame()
-    cleaned_categories_df[['category', 'match', 'score']] = wrong_categories_df['Category'].apply(lambda x: compare(x))
-    cleaned_categories_df = cleaned_categories_df.applymap(lambda x: x[0] if x else '')
+    columns_to_convert = ['product_manufacturer', 'cluster_name', 'best_manufacturer_match']
+    df_non_dup[columns_to_convert] = df_non_dup[columns_to_convert].applymap(convert_to_string)
     
-    category_matches_df = cleaned_categories_df[cleaned_categories_df['score'] >= 0.7]
-    category_matches_df = category_matches_df.rename(columns={'category': 'Category'})
+    df_non_dup[['final_match', 'score']] = df_non_dup.apply(lambda row: compare(row), axis=1)
+    df_non_dup['final_match'] = df_non_dup['final_match'].apply(lambda x: ' '.join(x))
+    df_non_dup['score'] = df_non_dup['score'].apply(lambda x: x[0])    
+    df_non_dup['correct_manufacturer_match'] = np.where(df_non_dup['score'] >= 0.8, df_non_dup['final_match'], df_non_dup['cluster_name'])
+
+    data['product_manufacturer'] = data['product_manufacturer'].apply(lambda x: x.strip().lower() if isinstance(x, str) else x)
+    data = data.merge(df_non_dup[['product_manufacturer', 'correct_manufacturer_match']], how='left', on='product_manufacturer')
+    data['correct_manufacturer_match'] = np.where(data['correct_manufacturer_match'].isna(), data['best_manufacturer_match'], data['correct_manufacturer_match'])
     
-    df = df.merge(category_matches_df[['Category', 'match']], how='left', on='Category')
-    df['match'] = np.where(df['match'].isna(), df['Category'], df['match'])
-    df = df.drop('Category', axis = 1).\
-            rename(columns={'match': 'correct_category_name'})
+    print(data.head())
     
-    # cleaning subcategories
-    df['Sub category'] = np.where(df['Sub category'].isna(), df['sub_category'], df['Sub category'])
-    df = df.drop('sub_category', axis = 1).\
-            rename(columns={'Sub category': 'correct_sub_category',
-                            'product_name': 'correct_product_match'})
-    
-    df = df.drop_duplicates(subset=['correct_product_match'], keep='first').reset_index(drop=True)
-    
-    print(df[df['correct_category_name'] == 'non-phamaciticals'][['product_category', 'correct_category_name']][:50])
-    print('printed!')
-    
-    data['correct_product_match'] = data['correct_product_match'].apply(lambda x: str(x).lower().strip())
-    data = data.merge(df[['correct_product_match', 'correct_category_name', 'correct_sub_category']], how='left', on='correct_product_match')
-    
-    print(df[['product_category', 'correct_category_name']][-50:])
-    print(df[['correct_product_match', 'correct_category_name']][-50:])
-    print(data[['product_category', 'correct_category_name_x', 'correct_category_name_y']][-50:]) 
-       
     return data
+
+
+
+
+
+
+
+
+# # STEP 5: Categories
+# def category_cleanup(data, iprocure_product_df):
+#     product_list = iprocure_product_df[['Product Name', 'Category', 'Sub category']].applymap(lambda x: str(x).lower().strip())\
+#                     .drop_duplicates(subset=['Product Name'], keep='first')\
+#                     .rename(columns={'Product Name': 'product_name'})\
+#                     .reset_index(drop=True)             
+    
+#     categories = product_list['Category'].unique().tolist()
+
+#     df = data[['correct_product_match', 'product_category', 'sub_category']].applymap(lambda x: str(x).lower().strip())\
+#                     .rename(columns={'correct_product_match': 'product_name'})\
+#                     .reset_index(drop=True)
+           
+#     category_mask = df['product_category'].isin(categories)
+#     no_category_mask = ~df['product_name'].isin(df.loc[category_mask, 'product_name'])
+#     keep_rows_mask = category_mask | no_category_mask
+    
+#     df = df[keep_rows_mask].drop_duplicates(subset=['product_name'], keep='first')
+
+#     df = df.merge(product_list, how='left', on='product_name')
+    
+#     # cleaning categories
+#     df['Category'] = np.where(df['Category'].isna(), df['product_category'], df['Category'])  
+                 
+#     wrong_categories_df = df[~df['Category'].isin(categories)]
+#     wrong_categories_df = wrong_categories_df.drop_duplicates(subset='Category', keep='first')
+
+#     # cleaning against iprocure categories
+#     def compare(i):
+#         comparison = {}
+#         if isinstance(i, str):
+#             comparison.update({i: get_close_matches(i, categories, n=1, cutoff=0.1)})
+#         category = list(comparison.keys()) if comparison else None
+#         match = []
+#         score = []
+#         if comparison:
+#             for key, value in comparison.items():
+#                 if value:
+#                     match.append(value[0])
+#                     score.append(round(SequenceMatcher(None, i, value[0]).ratio(), 2))
+#                 else:
+#                     match.append(None)
+#                     score.append(None)
+#         else:
+#             match.append(None)
+#             score.append(None)
+                
+#         return pd.Series([category, match, score], index = ['category', 'match', 'score'])
+
+#     cleaned_categories_df = pd.DataFrame()
+#     cleaned_categories_df[['category', 'match', 'score']] = wrong_categories_df['Category'].apply(lambda x: compare(x))
+#     cleaned_categories_df = cleaned_categories_df.applymap(lambda x: x[0] if x else '')
+    
+#     category_matches_df = cleaned_categories_df[cleaned_categories_df['score'] >= 0.7]
+#     category_matches_df = category_matches_df.rename(columns={'category': 'Category'})
+    
+#     df = df.merge(category_matches_df[['Category', 'match']], how='left', on='Category')
+#     df['match'] = np.where(df['match'].isna(), df['Category'], df['match'])
+#     df = df.drop('Category', axis = 1).\
+#             rename(columns={'match': 'correct_category_name'})
+    
+#     # cleaning subcategories
+#     df['Sub category'] = np.where(df['Sub category'].isna(), df['sub_category'], df['Sub category'])
+#     df = df.drop('sub_category', axis = 1).\
+#             rename(columns={'Sub category': 'correct_sub_category',
+#                             'product_name': 'correct_product_match'})
+    
+#     df = df.drop_duplicates(subset=['correct_product_match'], keep='first').reset_index(drop=True)
+    
+#     data['correct_product_match'] = data['correct_product_match'].apply(lambda x: str(x).lower().strip())
+#     data = data.merge(df[['correct_product_match', 'correct_category_name', 'correct_sub_category']], how='left', on='correct_product_match')
+       
+#     return data
+
 
 
 
@@ -592,47 +587,48 @@ def category_cleanup(data, iprocure_product_df):
 #                     cluster_cleaned_df.at[i, 'match'] = prev_lst
 #                     break  
                 
-#     cluster_cleaned_df['match_concat'] = cluster_cleaned_df['match'].apply(lambda x:' '.join(x))
-#     cluster_cleaned_df['match_split'] = cluster_cleaned_df['match_concat'].apply(lambda x: re.split(r'\s+|-|\(|\)|/|\\|\||,', x))
+#     # cluster_cleaned_df['match_concat'] = cluster_cleaned_df['match'].apply(lambda x:' '.join(x))
+#     # cluster_cleaned_df['match_split'] = cluster_cleaned_df['match_concat'].apply(lambda x: re.split(r'\s+|-|\(|\)|/|\\|\||,', x))
 
-#     # extracting most common words from each cluster in order
-#     cluster_word_freq = {}
+#     # # extracting most common words from each cluster in order
+#     # cluster_word_freq = {}
 
-#     for id, row in cluster_cleaned_df.iterrows():
-#         cluster = row['match_concat']
+#     # for id, row in cluster_cleaned_df.iterrows():
+#     #     cluster = row['match_concat']
 
-#         words = re.split(r'\s+|-|\(|\)|/|\\|\||,', cluster)
-#         words = [word for word in words if word.strip()]
+#     #     words = re.split(r'\s+|-|\(|\)|/|\\|\||,', cluster)
+#     #     words = [word for word in words if word.strip()]
 
-#         for word in words:
-#             if id in cluster_word_freq:
-#                 cluster_word_freq[id][word] = cluster_word_freq[id].get(word, 0) + 1
-#             else:
-#                 cluster_word_freq[id] = {word: 1}
+#     #     for word in words:
+#     #         if id in cluster_word_freq:
+#     #             cluster_word_freq[id][word] = cluster_word_freq[id].get(word, 0) + 1
+#     #         else:
+#     #             cluster_word_freq[id] = {word: 1}
 
-#     for id in cluster_word_freq:
-#         cluster_word_freq[id] = sorted(cluster_word_freq[id].items(), key=lambda x: x[1], reverse=True)
+#     # for id in cluster_word_freq:
+#     #     cluster_word_freq[id] = sorted(cluster_word_freq[id].items(), key=lambda x: x[1], reverse=True)
 
-#     cluster_word_freq_df = pd.DataFrame.from_dict(cluster_word_freq.items())
-#     cluster_word_freq_df.rename(columns={0: 'id', 1: 'word_freq'}, inplace=True)
+#     # cluster_word_freq_df = pd.DataFrame.from_dict(cluster_word_freq.items())
+#     # cluster_word_freq_df.rename(columns={0: 'id', 1: 'word_freq'}, inplace=True)
     
-#     cluster_word_freq_df['cluster_name'] = cluster_word_freq_df['word_freq'].apply(lambda x: ''.join(word[0] for word in x[:1]))
+#     # cluster_word_freq_df['cluster_name'] = cluster_word_freq_df['word_freq'].apply(lambda x: ''.join(word[0] for word in x[:1]))
     
-#     cluster_names = cluster_word_freq_df['cluster_name'].to_list()
+#     # cluster_names = cluster_word_freq_df['cluster_name'].to_list()
 
-#     def find_cluster_name(string):
-#         for i in cluster_names:
-#             if i in string:
-#                 return i
+#     # def find_cluster_name(string):
+#     #     for i in cluster_names:
+#     #         if i in string:
+#     #             return i
 
-#     cluster_cleaned_df['cluster_name'] = cluster_cleaned_df['match_split'].apply(find_cluster_name)
+#     # cluster_cleaned_df['cluster_name'] = cluster_cleaned_df['match_split'].apply(find_cluster_name)
     
+#     cluster_cleaned_df['cluster_name'] = cluster_cleaned_df['match'].apply(lambda x: x[0])
+
 #     clean_types = cleaned_types_df[cleaned_types_df['score'] >= 0.7]
 #     df = df.merge(clean_types[['unit', 'match']], how='left', on='unit')
 #     df = df.merge(cluster_cleaned_df[['unit', 'cluster_name']], how='left', on='unit')
 #     df['match'] = np.where(df['match'].isna(), df['cluster_name'], df['match'])
 #     df['match'] = np.where(df['match'].isna(), df['unit'], df['match'])
-#     df['match'] = np.where(df['match'].isna(), df['product_type'], df['match'])
 
 #     def add_correct_product_type_column(df):
 #         def is_numeric(value):
@@ -645,12 +641,12 @@ def category_cleanup(data, iprocure_product_df):
 #     add_correct_product_type_column(df)
     
 #     df = df[['correct_product_match', 'product_type', 'correct_product_type']].\
-#                 drop_duplicates(subset=['correct_product_match', 'correct_product_type'], keep='first')
+#                 drop_duplicates(subset=['correct_product_match', 'product_type', 'correct_product_type'], keep='first')
                 
 #     data[['correct_product_match', 'product_type']] = data[['correct_product_match', 'product_type']].applymap(lambda x: str(x).lower().strip())
 #     data = data.merge(df[['correct_product_match', 'product_type', 'correct_product_type']], how='left', on=['correct_product_match', 'product_type'])
 
-#     print(data.head(20))
+#     print(data[-50:])
     
 #     return data
 
@@ -673,9 +669,9 @@ master_df = pd.read_csv(f'gs://{tmp_bucket}/data-cleaning/master_list.csv', enco
 iprocure_product_df = pd.read_csv(f'gs://{tmp_bucket}/data-cleaning/iprocure_products.csv', encoding='utf-8', na_values=['NA', 'N/A'])
 original_data = pd.read_csv(f'gs://{tmp_bucket}/data-cleaning/cleaned_products.csv', encoding='utf-8', na_values=['NA', 'N/A'])
 
-# clustered_data = matching_by_clustering(original_data)
-# print('Finished first step!')
-# print(clustered_data.head())
+clustered_data = matching_by_clustering(original_data)
+print('Finished first step!')
+print(clustered_data.head())
 
 # unique_clustered_data = internal_string_matching(clustered_data)
 # print('Finished step 2!')
@@ -689,11 +685,11 @@ original_data = pd.read_csv(f'gs://{tmp_bucket}/data-cleaning/cleaned_products.c
 # print('Finished step 4!')
 # print(df.head())
 
-df = category_cleanup(original_data, iprocure_product_df)
-print('Finished step 5!')
-print(df.head())
+# df = category_cleanup(df, iprocure_product_df)
+# print('Finished step 5!')
+# print(df.head())
 
-# df = type_cleanup(df, iprocure_product_df)
+# df = type_cleanup(original_data, iprocure_product_df)
 # print('Finished last step!')
 # print(df.head())
 
