@@ -15,7 +15,7 @@ def type_cleanup(data, iprocure_product_df):
                                     drop_duplicates(subset=['Product Name', 'Type'], keep='first').\
                                     reset_index(drop=True)
                                     
-    df = data[['correct_product_match',	'product_type']].\
+    df = data[['correct_product_match', 'product_type']].\
                                     applymap(lambda x: str(x).lower().strip()).\
                                     drop_duplicates(subset=['correct_product_match', 'product_type'], keep='first').\
                                     reset_index(drop=True)
@@ -32,7 +32,7 @@ def type_cleanup(data, iprocure_product_df):
         else:
             return value, value
         
-    # applying the function to the column and create new columns
+    # applying the function to the column and creating new columns
     product_list_df[['number', 'unit']] = product_list_df['Type'].apply(lambda x: pd.Series(extract_parts(str(x))))
     df[['number', 'unit']] = df['product_type'].apply(lambda x: pd.Series(extract_parts(str(x))))
     
@@ -93,7 +93,6 @@ def type_cleanup(data, iprocure_product_df):
         string = row['unit']
         lst = row['match']
 
-        # checking if the string exists in any list of previous rows
         if not lst:
             for prev_i in range(i):
                 prev_lst = cluster_cleaned_df.at[prev_i, 'match']
@@ -101,47 +100,14 @@ def type_cleanup(data, iprocure_product_df):
                     cluster_cleaned_df.at[i, 'match'] = prev_lst
                     break  
                 
-    cluster_cleaned_df['match_concat'] = cluster_cleaned_df['match'].apply(lambda x:' '.join(x))
-    cluster_cleaned_df['match_split'] = cluster_cleaned_df['match_concat'].apply(lambda x: re.split(r'\s+|-|\(|\)|/|\\|\||,', x))
+    # creating a cluster name    
+    cluster_cleaned_df['cluster_name'] = cluster_cleaned_df['match'].apply(lambda x: x[0])
 
-    # extracting most common words from each cluster in order
-    cluster_word_freq = {}
-
-    for id, row in cluster_cleaned_df.iterrows():
-        cluster = row['match_concat']
-
-        words = re.split(r'\s+|-|\(|\)|/|\\|\||,', cluster)
-        words = [word for word in words if word.strip()]
-
-        for word in words:
-            if id in cluster_word_freq:
-                cluster_word_freq[id][word] = cluster_word_freq[id].get(word, 0) + 1
-            else:
-                cluster_word_freq[id] = {word: 1}
-
-    for id in cluster_word_freq:
-        cluster_word_freq[id] = sorted(cluster_word_freq[id].items(), key=lambda x: x[1], reverse=True)
-
-    cluster_word_freq_df = pd.DataFrame.from_dict(cluster_word_freq.items())
-    cluster_word_freq_df.rename(columns={0: 'id', 1: 'word_freq'}, inplace=True)
-    
-    cluster_word_freq_df['cluster_name'] = cluster_word_freq_df['word_freq'].apply(lambda x: ''.join(word[0] for word in x[:1]))
-    
-    cluster_names = cluster_word_freq_df['cluster_name'].to_list()
-
-    def find_cluster_name(string):
-        for i in cluster_names:
-            if i in string:
-                return i
-
-    cluster_cleaned_df['cluster_name'] = cluster_cleaned_df['match_split'].apply(find_cluster_name)
-    
     clean_types = cleaned_types_df[cleaned_types_df['score'] >= 0.7]
     df = df.merge(clean_types[['unit', 'match']], how='left', on='unit')
     df = df.merge(cluster_cleaned_df[['unit', 'cluster_name']], how='left', on='unit')
     df['match'] = np.where(df['match'].isna(), df['cluster_name'], df['match'])
     df['match'] = np.where(df['match'].isna(), df['unit'], df['match'])
-    df['match'] = np.where(df['match'].isna(), df['product_type'], df['match'])
 
     def add_correct_product_type_column(df):
         def is_numeric(value):
@@ -159,18 +125,17 @@ def type_cleanup(data, iprocure_product_df):
     data[['correct_product_match', 'product_type']] = data[['correct_product_match', 'product_type']].applymap(lambda x: str(x).lower().strip())
     data = data.merge(df[['correct_product_match', 'product_type', 'correct_product_type']], how='left', on=['correct_product_match', 'product_type'])
 
-    print(data.head(20))
-    
-    return df
+    print(data.head())
 
-def main():
+    return data
+
+
+    
+if __name__=="__main__":
     iprocure_product_df = pd.read_excel('../data/data_v2/product_list.xlsx')
     data = pd.read_csv('../data/data_v2/dirty_product_types.csv')
     
     type_cleanup(data, iprocure_product_df)
-    
-if __name__=="__main__":
-    main()
 
 
     

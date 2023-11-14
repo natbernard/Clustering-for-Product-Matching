@@ -12,19 +12,12 @@ warnings.filterwarnings('ignore')
 
 
 def matching_by_clustering(data):
-    # slicing product name, match, and match score
-    print(data.head())
     df = data[['product_name', 'best_product_match', 'product_match_score']].\
                 applymap(lambda x: x.lower().strip() if isinstance(x, str) else x)
-
-    print(df.head())
     
     # getting records with match score less than 80%
     to_cluster = df[df['product_match_score'] < 0.8]
     unique_names = to_cluster['product_name'].dropna().unique()
-    
-    print(len(unique_names))
-    print(unique_names)
     
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform(unique_names)
@@ -51,7 +44,7 @@ def matching_by_clustering(data):
     kmeans = KMeans(n_clusters=10000, random_state=42).fit(tfidf_matrix)
     labels = kmeans.labels_
     
-    # creating a dataframe of the clusters
+    # creating a dataframe with the clusters
     cluster_to_name = {}
     for label in set(labels):
         indices = np.where(labels == label)[0]
@@ -60,33 +53,17 @@ def matching_by_clustering(data):
         
     cluster_df = pd.DataFrame.from_dict(cluster_to_name.items())
     cluster_df.rename(columns={0: 'cluster_id', 1: 'product_names'}, inplace=True)
-    cluster_df.set_index('cluster_id', inplace=True)
     
     unique_names_df = pd.DataFrame({'product_name': unique_names,
                                     'label': labels})
     
-    # extracting most common words from each cluster in order
-    cluster_word_freq = {}
-
-    for doc, cluster_label in zip(unique_names, labels):
-        words = re.split(r'\s+|-|\(|\)|/|\\|\||,', doc)
-        for word in words:
-            if cluster_label in cluster_word_freq:
-                cluster_word_freq[cluster_label][word] = cluster_word_freq[cluster_label].get(word, 0) + 1
-            else:
-                cluster_word_freq[cluster_label] = {word: 1}
-        
-    for cluster_label in cluster_word_freq:
-        cluster_word_freq[cluster_label] = sorted(cluster_word_freq[cluster_label].items(), key=lambda x: x[1], reverse=True)
-        
-    cluster_word_freq_df = pd.DataFrame.from_dict(cluster_word_freq.items())
-    cluster_word_freq_df.rename(columns={0: 'label', 1: 'word_freq'}, inplace=True)
-
-    cluster_word_freq_df['cluster_name'] = cluster_word_freq_df['word_freq'].apply(lambda x: ' '.join(word[0] for word in x[:3] if word[0] != ' '))
+    # creating a cluster name    
+    cluster_df['cluster_name'] = cluster_df['product_names'].apply(lambda x: x[0])
+    cluster_df = cluster_df.rename(columns={'cluster_id': 'label'})
     
     # merging cluster names with original product names
     merge_df = to_cluster.merge(unique_names_df, how='left', on='product_name')
-    merge_df = merge_df.merge(cluster_word_freq_df[['label', 'cluster_name']], how='left', on='label')
+    merge_df = merge_df.merge(cluster_df[['label', 'cluster_name']], how='left', on='label')
         
     return merge_df
     
@@ -155,27 +132,19 @@ def master_string_matching(products_df, master_df, unique_clustered_data):
     products_df['product_name'] = products_df['product_name'].apply(lambda x: x.lower().strip() if isinstance(x, str) else x)
     products_df = products_df.merge(unique_clustered_data[['product_name', 'correct_product_match']], how='left', on='product_name')
     products_df['correct_product_match'] = np.where(products_df['correct_product_match'].isna(), products_df['best_product_match'], products_df['correct_product_match'])
-    
-    print(products_df.head()) 
-       
+           
     return products_df
 
 
     
-
-if __name__ == "__main__":
-    # master_df = pd.read_csv('../data/data_v1/master_list.csv')
-    # data = pd.read_csv('../data/data_v2/subsequent_unmatched_products.csv')
-    
+if __name__ == "__main__":    
     master_df = master_df = pd.read_csv('../data/data_v1/master_list.csv')
     iprocure_product_df = pd.read_excel('../data/data_v2/product_list.xlsx')   
     data = pd.read_csv('../ipos_products.csv')
-
-    matching_by_clustering(data)
     
-    # clustered_data = matching_by_clustering(data)
-    # unique_clustered_data = internal_string_matching(clustered_data)
-    # master_string_matching(data, master_df, unique_clustered_data)
+    clustered_data = matching_by_clustering(data)
+    unique_clustered_data = internal_string_matching(clustered_data)
+    master_string_matching(data, master_df, unique_clustered_data)
     
 
 
